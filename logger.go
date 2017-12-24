@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	stdlog "log"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -56,6 +57,8 @@ func logfmt(pairs ...interface{}) string {
 		switch v {
 		case LTime:
 			res = append(res, fmt.Sprintf("time=%v", time.Now().Format("2006-01-02T15:04:05")))
+		case LApp:
+			res = append(res, fmt.Sprintf("app=%v", filepath.Base(os.Args[0])))
 		case LCaller:
 			var name string
 			funcName, fileName, fileLine, err := here(3)
@@ -115,6 +118,7 @@ type Flag int
 const (
 	LTime Flag = iota
 	LCaller
+	LApp
 )
 
 func quote(v interface{}) string {
