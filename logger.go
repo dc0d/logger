@@ -67,6 +67,7 @@ const (
 	LInfo                     // level info
 	LWarn                     // level warn
 	LError                    // level error
+	LNoColor                  // do not use colors
 
 	hastime = Ldate | Ltime | Lmicroseconds | LUTC
 	hasloc  = Llongfile | Lshortfile
@@ -79,7 +80,7 @@ type Logger struct {
 }
 
 // New creates a *Logger. Panics if logger is nil.
-func New(logger *stdlog.Logger) (res *Logger) {
+func New(logger *stdlog.Logger, flags ...int) (res *Logger) {
 	if logger == nil {
 		panic("logger can not be nil")
 	}
@@ -88,17 +89,36 @@ func New(logger *stdlog.Logger) (res *Logger) {
 	res.flags = logger.Flags()
 	logger.SetFlags(0)
 
-	switch {
-	case res.flags&LError == LError:
-		logger.SetPrefix(color.New(color.FgHiRed).Sprintf("level=error") + " ")
-	case res.flags&LWarn == LWarn:
-		logger.SetPrefix(color.New(color.FgHiYellow).Sprintf("level=warn") + " ")
-	case res.flags&LDebug == LDebug:
-		logger.SetPrefix(color.New(color.FgWhite).Sprintf("level=debug") + " ")
-	case res.flags&LInfo == LInfo:
-		fallthrough
-	default:
-		logger.SetPrefix(color.New(color.FgBlue).Sprintf("level=info") + " ")
+	for _, v := range flags {
+		res.flags = v | res.flags
+	}
+
+	if res.flags&LNoColor == 0 {
+		switch {
+		case res.flags&LError == LError:
+			logger.SetPrefix(color.New(color.FgHiRed).Sprintf("level=error "))
+		case res.flags&LWarn == LWarn:
+			logger.SetPrefix(color.New(color.FgHiYellow).Sprintf("level=warn "))
+		case res.flags&LDebug == LDebug:
+			logger.SetPrefix(color.New(color.FgWhite).Sprintf("level=debug "))
+		case res.flags&LInfo == LInfo:
+			fallthrough
+		default:
+			logger.SetPrefix(color.New(color.FgBlue).Sprintf("level=info "))
+		}
+	} else {
+		switch {
+		case res.flags&LError == LError:
+			logger.SetPrefix("level=error ")
+		case res.flags&LWarn == LWarn:
+			logger.SetPrefix("level=warn ")
+		case res.flags&LDebug == LDebug:
+			logger.SetPrefix("level=debug ")
+		case res.flags&LInfo == LInfo:
+			fallthrough
+		default:
+			logger.SetPrefix("level=info ")
+		}
 	}
 
 	return
@@ -124,7 +144,7 @@ func (l *Logger) sprint(v ...interface{}) string {
 	{
 		h := l.headers()
 		if h != "" {
-			parts = append(parts, h)
+			parts = append(parts, h, "\n   ")
 		}
 	}
 	for i := 0; i < len(v)-1; i += 2 {
@@ -168,16 +188,28 @@ func (l *Logger) headers() string {
 			format = time.RFC3339
 		}
 
-		parts = append(parts, "time="+now.Format(format))
+		if l.flags&LNoColor == 0 {
+			parts = append(parts, color.New(color.FgGreen).Sprint("time="+now.Format(format)))
+		} else {
+			parts = append(parts, "time="+now.Format(format))
+		}
 	}
 
 	if l.flags&hasloc > 0 {
 		loc := here(2)
 		switch {
 		case l.flags&Llongfile == Llongfile:
-			parts = append(parts, "loc="+loc.long)
+			if l.flags&LNoColor != 0 {
+				parts = append(parts, "loc="+loc.long)
+			} else {
+				parts = append(parts, color.New(color.FgHiMagenta).Sprint("loc="+loc.long))
+			}
 		case l.flags&Lshortfile == Lshortfile:
-			parts = append(parts, "loc="+loc.short)
+			if l.flags&LNoColor != 0 {
+				parts = append(parts, "loc="+loc.short)
+			} else {
+				parts = append(parts, color.New(color.FgHiMagenta).Sprint("loc="+loc.short))
+			}
 		}
 	}
 
